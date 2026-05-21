@@ -5,7 +5,9 @@
  * All CLI args are passed as an array — never interpolated into a shell string.
  */
 
-import { execFileSync } from "child_process";
+import { execFile } from "child_process";
+import { promisify } from "util";
+const execFileAsync = promisify(execFile);
 
 const CLI_TIMEOUT_MS = 30000;
 
@@ -15,11 +17,10 @@ interface OnchainOSResult {
   error?: string;
 }
 
-function runCommand(args: string[]): OnchainOSResult {
+async function runCommand(args: string[]): Promise<OnchainOSResult> {
   try {
-    const output = execFileSync("onchainos", [...args, "--json"], {
+    const { stdout } = await execFileAsync("onchainos", [...args, "--json"], {
       timeout: CLI_TIMEOUT_MS,
-      encoding: "utf-8",
       env: {
         ...process.env,
         OKX_API_KEY: process.env.OKX_API_KEY || "",
@@ -27,11 +28,11 @@ function runCommand(args: string[]): OnchainOSResult {
         OKX_PASSPHRASE: process.env.OKX_PASSPHRASE || "",
       },
     });
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(stdout);
     return { success: true, data: parsed };
   } catch (err: any) {
     try {
-      const errorOutput = err.stdout || err.stderr || err.message;
+      const errorOutput = err.stdout?.toString() || err.stderr?.toString() || err.message;
       const parsed = JSON.parse(errorOutput);
       return { success: false, error: parsed.message || parsed.error || errorOutput };
     } catch {
@@ -43,7 +44,7 @@ function runCommand(args: string[]): OnchainOSResult {
 // ── Contract Verification ──
 
 export async function getContractInfo(address: string): Promise<any> {
-  const result = runCommand(["contract", "info", "--address", address.toLowerCase(), "--chain", "xlayer"]);
+  const result = await runCommand(["contract", "info", "--address", address.toLowerCase(), "--chain", "xlayer"]);
   if (!result.success) {
     throw new Error(`Failed to fetch contract info: ${result.error}`);
   }
@@ -73,7 +74,7 @@ export async function getContractDeploymentAge(address: string): Promise<number>
 // ── Token Data ──
 
 export async function getTokenInfo(address: string): Promise<any> {
-  const result = runCommand(["token", "info", "--address", address.toLowerCase(), "--chain", "xlayer"]);
+  const result = await runCommand(["token", "info", "--address", address.toLowerCase(), "--chain", "xlayer"]);
   if (!result.success) {
     throw new Error(`Failed to fetch token info: ${result.error}`);
   }
@@ -83,7 +84,7 @@ export async function getTokenInfo(address: string): Promise<any> {
 // ── Wallet Approval History ──
 
 export async function getWalletApprovals(address: string): Promise<any[]> {
-  const result = runCommand(["wallet", "approvals", "--address", address, "--chains", "xlayer"]);
+  const result = await runCommand(["wallet", "approvals", "--address", address, "--chains", "xlayer"]);
   if (!result.success) {
     throw new Error(`Failed to fetch approvals: ${result.error}`);
   }
@@ -93,7 +94,7 @@ export async function getWalletApprovals(address: string): Promise<any[]> {
 // ── Market / Mempool Data ──
 
 export async function getMempoolStatus(): Promise<any> {
-  const result = runCommand(["market", "mempool", "--chain", "xlayer"]);
+  const result = await runCommand(["market", "mempool", "--chain", "xlayer"]);
   if (!result.success) {
     throw new Error(`Failed to fetch mempool: ${result.error}`);
   }
@@ -101,7 +102,7 @@ export async function getMempoolStatus(): Promise<any> {
 }
 
 export async function getPoolLiquidity(tokenA: string, tokenB: string, dex: string): Promise<any> {
-  const result = runCommand([
+  const result = await runCommand([
     "market", "liquidity",
     "--token-a", tokenA.toLowerCase(),
     "--token-b", tokenB.toLowerCase(),
@@ -117,7 +118,7 @@ export async function getPoolLiquidity(tokenA: string, tokenB: string, dex: stri
 // ── Scam Database ──
 
 export async function checkKnownScam(address: string): Promise<any> {
-  const result = runCommand(["contract", "safety", "--address", address.toLowerCase(), "--chain", "xlayer"]);
+  const result = await runCommand(["contract", "safety", "--address", address.toLowerCase(), "--chain", "xlayer"]);
   if (!result.success) {
     return { knownScam: false, reason: "Check failed" };
   }

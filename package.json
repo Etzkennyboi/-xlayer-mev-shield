@@ -4,7 +4,7 @@
   "description": "Pre-flight Transaction Safety Shield for X Layer — detects sandwich attacks, infinite approvals, known scams, and phishing before you sign. Uses onchainOS (primary) and viem (on-chain fallback) for contract verification and wallet history. Built for the Agentic Wallet Competition.",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "npx tsc",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts"
   },

@@ -11,7 +11,7 @@
 import * as onchainOS from "../utils/onchainos";
 import { getPublicClient } from "../utils/client";
 import { ERC20_ABI, SAFE_CONTRACTS } from "../config/contracts";
-import { resolveToken } from "../config/tokens";
+import { resolveToken, NATIVE_TOKEN } from "../config/tokens";
 
 // ── Types ──
 
@@ -320,7 +320,9 @@ export async function analyzeTransaction(
   // ── Check 7: Value sent to unknown contract ──
   if (value && BigInt(value) > 0n) {
     if (!isSafeContract) {
-      const okbAmount = Number(BigInt(value)) / 1e18;
+      // Use dynamic decimals for OKB (native token)
+      const okbDecimals = NATIVE_TOKEN.decimals;
+      const okbAmount = Number(BigInt(value)) / Math.pow(10, okbDecimals);
       threats.push({
         category: "CONTRACT",
         severity: "MEDIUM",
@@ -533,9 +535,12 @@ export async function detectSandwichRisk(
 
   // Use BigInt math throughout to avoid precision loss on large trades
   // Convert to "token units" (assuming 18 decimals) only for comparisons
-  const WEI = 10n ** 18n;
+  // Determine token decimals dynamically based on input token
+  const tokenInfo = resolveToken(tokenIn);
+  const tokenDecimals = tokenInfo?.decimals ?? 18;
+  const WEI = 10n ** BigInt(tokenDecimals);
   const amountInTokens = amountInBig / WEI; // integer token units, precision-safe
-  const amountInFloat = Number(amountInBig) / 1e18; // float only for display
+  const amountInFloat = Number(amountInBig) / Math.pow(10, tokenDecimals); // float only for display
 
   const factors: string[] = [];
   let probability = 0.1; // base probability

@@ -157,6 +157,28 @@ export async function analyzeTransaction(
     riskScore += 5; // known protocol — still check other risks but low base
   }
 
+  // ── Stateful Simulation (eth_call) ──
+  if (from) {
+    try {
+      const client = getPublicClient();
+      await client.call({
+        account: from as `0x${string}`,
+        to: to as `0x${string}`,
+        data: data as `0x${string}` || undefined,
+        value: value ? BigInt(value) : undefined,
+      });
+    } catch (err: any) {
+      threats.push({
+        category: "OTHER",
+        severity: "CRITICAL",
+        title: "Transaction Reverts",
+        description: "Simulating this transaction on-chain resulted in a revert. It is highly likely to fail and waste gas.",
+        evidence: `Error: ${err.shortMessage || err.message || "Unknown execution revert"}`,
+      });
+      riskScore += 50;
+    }
+  }
+
   // ── Check 2: Contract verification + deployment age ──
   try {
     const isVerified = await onchainOS.isContractVerified(to);

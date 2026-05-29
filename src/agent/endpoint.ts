@@ -51,7 +51,6 @@ const executeRateLimiter = rateLimit({
   message: "Too many requests, please try again later",
   standardHeaders: true,
   skipSuccessfulRequests: false,
-  keyGenerator: (req) => req.ip || "unknown",
 });
 
 // ── Request ID & Logging ──

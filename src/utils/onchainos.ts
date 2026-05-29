@@ -17,7 +17,16 @@ interface OnchainOSResult {
   error?: string;
 }
 
+const cache = new Map<string, { data: any; expiry: number }>();
+const CACHE_TTL_MS = 60 * 1000; // 1 minute cache to avoid stale mempool data
+
 async function runCommand(args: string[]): Promise<OnchainOSResult> {
+  const cacheKey = args.join("|");
+  const cached = cache.get(cacheKey);
+  if (cached && cached.expiry > Date.now()) {
+    return { success: true, data: cached.data };
+  }
+
   try {
     const { stdout } = await execFileAsync("onchainos", [...args, "--json"], {
       timeout: CLI_TIMEOUT_MS,
@@ -29,6 +38,10 @@ async function runCommand(args: string[]): Promise<OnchainOSResult> {
       },
     });
     const parsed = JSON.parse(stdout);
+    
+    // Cache successful reads to reduce RPC/CLI overhead
+    cache.set(cacheKey, { data: parsed, expiry: Date.now() + CACHE_TTL_MS });
+    
     return { success: true, data: parsed };
   } catch (err: any) {
     try {
